@@ -628,4 +628,4 @@ DCL语句是DBA用来管理系统中的对象权限时候使用的,虽然开发�
 <a id="6%E6%89%93%E4%B8%AA%E6%80%BB%E7%BB%93"></a>
 ### 6.打个总结
 
-![SQL 总结](.\images\2-SQL.png "SQL")
+![SQL 总结](.\images\2-sql.png "SQL")
