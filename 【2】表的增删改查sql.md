@@ -502,7 +502,7 @@ mysql> desc my_news;
 - [**function**] 聚合函数 常用的sum() 、count(*) 、max() 、min()、avg()
     + `select count(*) from news;` #查看news中有多少条记录
     + `select avg(click) from news;` #平均点赞量
-    + `select sum(click) from newsl` #总的点赞量
+    + `select sum(click) from news;` #总的点赞量
 
 - [**group by**] 分组语句可结合一些聚合函数来使用
     + `select category,count(*) from news group by category;` # 按照category分组，统计各组记录数
