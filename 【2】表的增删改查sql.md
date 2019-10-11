@@ -427,7 +427,7 @@ mysql> desc my_news;
     - delete 操作以后，使用 **optimize table table_name** 会立刻释放磁盘空间，不管是 innodb 还是 myisam;
 - 区别： `delete` 、 `truncate` 、`drop`
     - delete 和 truncate 仅仅删除表数据，drop 连表数据和表结构一起删除
-    - delete 是 DML 数据操作语句，操作完以后如果没有不想提交事务还可以回滚
+    - delete 是 DML 数据操作语句，操作完以后如果没有不想提交事务还可以回滚。
     - truncate 和 drop 是 DDL 数据定义语句，操作完马上生效，不能回滚
     - 在速度上，一般来说，drop > truncate > delete。
 
@@ -471,18 +471,28 @@ mysql> desc my_news;
 - 利用星号`*`表示查询返回所有字段,当然建议是将字段写出来，优化查询;
 - 查询条件`where id=1` 等值判断，还有其他的范围in判断;
 - 另外查询这里还有很多东西要讲，分组`group by`、分组后过滤`having`、排序`order by`、筛选`limit`等
-- 执行顺序 `select –> where –> group by –> having –> order by -> limit`
-
+- 执行顺序 `form –> where –> group by –> having –> order by -> select -> limit`
+    + `form` 子句 组装来自不同数据表的数据;
+    + `where`子句 基于指定的条件对记录进行筛选;
+    + `group by` 子句 将数据划分为多个分组;
+    + 使用聚合函数进行计算;
+    + `having` 子句 筛选分组;
+    + 计算所有的表达式;
+    + `order by` 子句 使用order by对结果集进行排序；
+    + `select` 获取相应列;
+    + `limit`截取结果集;
 
 <a id="45-%E6%9F%A5%E8%AF%A2%E8%AF%A6%E8%A7%A3"></a>
 #### 4.5 查询详解
+
+一般查询的时候建议*替换为具体的列。不要返回用不到的任何字段。下面我方便写语句所以示例中都用了*替代。
 
 - [**distinct**] 查询不重复的记录
     + 在表中，一个列可能会包含多个重复值，有时您也许希望仅仅列出不同（`distinct`）的值。
     + `select distinct title from news;` #对标题去重返回结果
 
-- [**where**]    条件查询(or 、and、 <、 >、 >=、 <=、 !=、 =、<>、 in 、not in、 is null 、is not null 、 between等)
-    + `select * from news where id>=5 and id<=10;`       #(**逻辑查询 and与**)
+- [**where**]    条件查询(or 、and、 <、 >、 >=、 <=、 !=、 =、<>、 in 、not in、 is null 、is not null 、 between、exists等)
+    + `select * from news where id>=5 and id<=10;`#(**逻辑查询 and与**)
     + `select * from news where title="第一个" or category="栏目1"; `#(**逻辑查询 or或**)
     + `select * from news where not id >5 ;` #(**逻辑查询 not非**)
     + `select * from news where id = 1;` #(**等值查询 =**)
@@ -490,6 +500,7 @@ mysql> desc my_news;
     + `select * from news where id between 1 and 5;` #(**范围查询 between**)
     + `select * from news where id in (1,3,5);` #(**列表查询 in**)
     + `select * from news where title like '第一%';` #(**模糊查询 like**) %匹配多个字符  _匹配一个字符
+    + `select * from news where exists (select * from category where id=1);`#(内层查询记录 返回值 bool)
 
 - [**order by**] 用于对结果集进行排序(默认升序asc  也可以倒叙desc)
     + `select * from news order by click desc`;#(**单列排序**)
@@ -503,6 +514,14 @@ mysql> desc my_news;
     + `select count(*) from news;` #查看news中有多少条记录
     + `select avg(click) from news;` #平均点赞量
     + `select sum(click) from newsl` #总的点赞量
+    + count(1) count(*) count(column)区别
+        * 结果上
+            - count(*)包括了所有的列，相当于行数，在统计结果的时候，不会忽略列值为NULL
+            - count(1)包括了忽略所有列，用1代表代码行，在统计结果的时候，不会忽略列值为NULL  同 count(1)
+            - count(列名)只包括列名那一列，在统计结果的时候，会忽略列值为NULL的计数
+        * 效率上
+            - 列名为主键，count(列名)会比count(1)快；列名不为主键，count(1)会比count(列名)快 ；
+            - count(*) 比较慢；
 
 - [**group by**] 分组语句可结合一些聚合函数来使用
     + `select category,count(*) from news group by category;` # 按照category分组，统计各组记录数
@@ -521,9 +540,16 @@ mysql> desc my_news;
 - [**join**] 内、外连接
     + 内连接 inner ：两个表 相互匹配的记录，都含有的共同的部分；
     + 外连接 left/right：分为 左连接、右连接；左右连接可以相互转化。 左/右，指的参考表；
-    + `select title,name from article inner join  category on article.cid = category.id; `       内连接
+    + 内外链接性能比较： 从理论上来分析，确实是 **inner join的性能要好**。
+        * 因为 inner join是选出 2个表都有的记录，而left join会出来左边表的所有记录、满足on条件的右边表的记录。
+        * 解析阶段，左连接是内连接的下一阶段，内连接结束后，会把存在于左表而未存在于右表的数据加回总的结果集
+        * 编译的优化阶段，如果左连接的结果集和内连接一样时，左连接查询会转换成内连接查询
+    + `select title,name from article inner join  category on article.cid = category.id; ` 内连接
     + `select title,name from article left join category on article.cid = category.id;` 左连接
     + `select title,name from category right join article on category.id = article.cid;`右连接
+    + using(column_list)：其作用是为了方便书写联结的多对应关系，大部分情况下 USING 语句可以用ON语句来代替
+        * a left join b using (c1,c2,c3)，其作用相当于下面语句
+        * a left join b on a.c1=b.c1 and a.c2=b.c2 and a.c3=b.c3
 
 - [**子查询**]
     + `select * from article where cid in (select id from category);`
@@ -618,8 +644,10 @@ DCL语句是DBA用来管理系统中的对象权限时候使用的,虽然开发�
 ```
 
 - [**grant**]创建数据库study的用户test,分配权限
+    + grant 权限 on 数据库对象 to 用户；
     - `grant select,insert on study.* to 'test'@'localhost' identified by '123456';`
 - [**revoke**]移除study的用户权限insert
+    + revoke 权限 on 数据库对象 to 用户;
     - `revoke insert on study.* from 'test'@'localhost';`
 
 
@@ -628,4 +656,4 @@ DCL语句是DBA用来管理系统中的对象权限时候使用的,虽然开发�
 <a id="6%E6%89%93%E4%B8%AA%E6%80%BB%E7%BB%93"></a>
 ### 6.打个总结
 
-![SQL 总结](.\images\2-SQL.png "SQL")
+![SQL 总结](https://raw.githubusercontent.com/Tacks9/mysql_summary/master/images/2-sql.png "SQL")
